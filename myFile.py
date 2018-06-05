@@ -8,16 +8,19 @@ myfont = pygame.font.SysFont('Impact', 30)
 menu_font = pygame.font.Font(None, 40)
 gameOverFont = pygame.font.SysFont('Impact', 200)
 
-#Game State Constants
+# Game State Constants
 MAIN_MENU = 0
+PAUSE = 1
 LEVEL_ONE = 101
 LEVEL_ONE_TRANSITION = 1015
 LEVEL_TWO = 102
 LEVEL_TWO_TRANSITION = 1025
 LEVEL_THREE = 103
+LEVEL_THREE_TRANSITION = 1035
+LEVEL_FOUR = 104
 
 END_GAME = 9
-#QUIT = 999
+# QUIT = 999
 
 
 def controlHealth():
@@ -39,12 +42,14 @@ def controlBalls():
     for ball in Balls:
         ball.bounceOffWalls()
         if level == 1:
-            #ball.change_mox(ball.mox+random.randint(-1,3))
-            #ball.change_moy(ball.moy+random.randint(-1,3))
+            # ball.change_mox(ball.mox+random.randint(-1,3))
+            # ball.change_moy(ball.moy+random.randint(-1,3))
             ball.move()
         if level == 2:
             ball.move()
         if level == 3:
+            ball.move()
+        if level == 4:
             ball.move()
 
         DISPLAYSURF.blit(ball.currentImage, (ball.x, ball.y))
@@ -89,7 +94,6 @@ def controlUser():
     DISPLAYSURF.blit(userBall.currentImage, (userBall.x, userBall.y))
     dead = controlHealth()
     return dead
-
 
 
 # Helper Functions for ROTATE FACE. In use for computer whatever
@@ -222,12 +226,15 @@ class userBall(object):
 
     def loseHealth(self):
         if self.health == 3:
+            DISPLAYSURF.fill(Color(255, 0, 0, 255))
             self.health = 2
             self.currentImage = userMedImg
         elif self.health == 2:
+            DISPLAYSURF.fill(Color(255, 0, 0, 0))
             self.health = 1
             self.currentImage = userSadImg
         elif self.health == 1:
+            DISPLAYSURF.fill(Color(255, 0, 0, 0))
             self.health = 0
             self.currentImage = userDeadImg
 
@@ -290,6 +297,7 @@ def drawMenu():
         option.draw()
     return 2
 
+
 def drawStartMenu():
     for idx, option in enumerate(startOptions):
         if option.rect.collidepoint(pygame.mouse.get_pos()):
@@ -300,6 +308,25 @@ def drawStartMenu():
                     return 1
                 if idx == 1:
                     return 2
+        else:
+            pygame.mouse.set_cursor(*pygame.cursors.diamond)
+            option.hovered = False
+        option.draw()
+    return 0
+
+
+def draw_pause_menu():
+    for idx, option in enumerate(pause_options):
+        if option.rect.collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.broken_x)
+            option.hovered = True
+            if event.type == pygame.MOUSEBUTTONUP:
+                if idx == 0:
+                    return 1
+                if idx == 1:
+                    return 2
+                if idx == 2:
+                    return 3
         else:
             pygame.mouse.set_cursor(*pygame.cursors.diamond)
             option.hovered = False
@@ -330,9 +357,9 @@ boingSound.set_volume(0.1)
 pygame.display.set_icon(userHappyImg)
 
 
-def timer(startTime):
+def timer(startTime, pauseTime):
     currentTime = pygame.time.get_ticks()
-    currentTime = currentTime - startTime
+    currentTime = currentTime - startTime - pauseTime
     currentTime = currentTime / 10
     textsurface = myfont.render(str(currentTime), True, (0, 200, 200))
     DISPLAYSURF.blit(textsurface, (1425, 0))
@@ -343,10 +370,10 @@ def drawLevelScore():
     text_surface = myfont.render("Level: {0}".format(str(level)), True, (0,200,200))
     DISPLAYSURF.blit(text_surface, (1300,0))
 
-def mainGame(startTime):
+def mainGame(startTime, pauseTime):
     controlBalls()
     dead = controlUser()
-    time = timer(startTime)
+    time = timer(startTime, pauseTime)
     drawLevelScore()
     return {"dead": dead, "time": time}
 
@@ -363,14 +390,23 @@ def drawStart():
 
 startOptions = [Option("START GAME", (300,500)), Option("QUIT", (300, 550))]
 options = [Option("PLAY AGAIN", (500, 505)), Option("MAIN MENU", (500, 545)), Option("QUIT", (500, 585))]
+pause_options = [Option("RESUME", (500, 505)), Option("MAIN MENU", (500, 545)), Option("QUIT", (500, 585))]
 
 initial_load = 1
+initial_pause = 1
 userBall = make_user_ball()
 gameState = MAIN_MENU
 level = 1
 
 running = True
+pause_time = 0
 while running:
+    keys = pygame.key.get_pressed()
+    if keys[K_p]:
+        if gameState != 1:
+            prev_state = gameState
+        gameState = PAUSE
+
     DISPLAYSURF.fill((0, 0, 0))
 
     if gameState == MAIN_MENU:
@@ -383,7 +419,6 @@ while running:
             running = False
             continue
 
-
     if gameState == LEVEL_ONE:
         if initial_load:
             pygame.mouse.set_visible(False)
@@ -394,18 +429,18 @@ while running:
             for i in range(0,3):
                 add_ball((i*100)+150, (i*100)+150, (i*3)+3, (i*3)+3, 8)
             initial_load = 0
-        stopGame = mainGame(startTime)
+        stopGame = mainGame(startTime, pause_time)
 
-        if(stopGame["time"] > 1000):
+        if stopGame["time"] > 2000:
             initial_load = 1
             gameState = LEVEL_ONE_TRANSITION
 
-        if(stopGame["dead"]):
+        if stopGame["dead"]:
             pygame.mouse.set_visible(True)
             gameState = END_GAME
 
     if gameState == LEVEL_ONE_TRANSITION:
-        stopGame = mainGame(startTime)
+        stopGame = mainGame(startTime, pause_time)
         if initial_load:
             BallsRect = []
             level = 2
@@ -413,10 +448,10 @@ while running:
             initial_load = 0
         for ball in Balls:
             ball.currentImage = pygame.transform.scale(ball.currentImage, (ball.currentImage.get_height()-16,ball.currentImage.get_width()-16))
-            #DISPLAYSURF.blit(ball.currentImage, (ball.x, ball.y))
+            # DISPLAYSURF.blit(ball.currentImage, (ball.x, ball.y))
             if ball.currentImage.get_width() <= 25:
                 Balls = []
-        if(stopGame["time"] > 1500):
+        if stopGame["time"] > 2500:
             initial_load = 1
             gameState = LEVEL_TWO
         # todo change background
@@ -431,18 +466,18 @@ while running:
                 add_ball(((i%3)*300)+50, ((i/3)*200)+50, 5, 5 , 3)
             userBall.restore_all_health()
             initial_load = 0
-        stopGame = mainGame(startTime)
+        stopGame = mainGame(startTime, pause_time)
 
-        if(stopGame["time"] > 2500):
+        if stopGame["time"] > 4500:
             initial_load = 1
             gameState = LEVEL_TWO_TRANSITION
 
-        if(stopGame["dead"]):
+        if stopGame["dead"]:
             pygame.mouse.set_visible(True)
             gameState = END_GAME
 
     elif gameState == LEVEL_TWO_TRANSITION:
-        stopGame = mainGame(startTime)
+        stopGame = mainGame(startTime, pause_time)
         if initial_load:
             BallsRect = []
             level = 3
@@ -450,10 +485,10 @@ while running:
             initial_load = 0
         for ball in Balls:
             ball.currentImage = pygame.transform.scale(ball.currentImage, (ball.currentImage.get_height()-16,ball.currentImage.get_width()-16))
-            #DISPLAYSURF.blit(ball.currentImage, (ball.x, ball.y))
+            # DISPLAYSURF.blit(ball.currentImage, (ball.x, ball.y))
             if ball.currentImage.get_width() <= 25:
                 Balls = []
-        if(stopGame["time"] > 3000):
+        if stopGame["time"] > 5000:
             initial_load = 1
             gameState = LEVEL_THREE
         # todo change background
@@ -468,16 +503,50 @@ while running:
             add_ball(10, height-200, 15,-15, 15)
             add_ball(width-200, height-200, -15,-15, 15)
             initial_load = 0
-        stopGame = mainGame(startTime)
+        stopGame = mainGame(startTime, pause_time)
 
-        if (stopGame["time"] > 3500):
+        if stopGame["time"] > 7000:
+            initial_load = 1
+            gameState = LEVEL_THREE_TRANSITION
+
+        if (stopGame["dead"]):
+            pygame.mouse.set_visible(True)
+            gameState = END_GAME
+
+    elif gameState == LEVEL_THREE_TRANSITION:
+        stopGame = mainGame(startTime, pause_time)
+        if initial_load:
+            BallsRect = []
+            level = 4
+            userBall.restore_all_health()
+            initial_load = 0
+        for ball in Balls:
+            ball.currentImage = pygame.transform.scale(ball.currentImage, (ball.currentImage.get_height()-16,ball.currentImage.get_width()-16))
+            #DISPLAYSURF.blit(ball.currentImage, (ball.x, ball.y))
+            if ball.currentImage.get_width() <= 25:
+                Balls = []
+        if stopGame["time"] > 7500:
+            initial_load = 1
+            gameState = LEVEL_FOUR
+        # todo change background
+        # todo change level
+
+    elif gameState == LEVEL_FOUR:
+        if initial_load:
+            Balls = []
+            BallsRect = []
+            add_ball(10, 10, 40, 15, 40)
+
+            initial_load = 0
+        stopGame = mainGame(startTime, pause_time)
+
+        if stopGame["time"] > 100000:
             initial_load = 1
             gameState = END_GAME
 
         if (stopGame["dead"]):
             pygame.mouse.set_visible(True)
             gameState = END_GAME
-
 
     elif gameState == END_GAME:
         pygame.mouse.set_visible(True)
@@ -493,6 +562,25 @@ while running:
             running = False
             continue
 
+    elif gameState == PAUSE:
+        # drawGameOver(stopGame["time"])
+        if initial_pause:
+            pause_time_start = pygame.time.get_ticks()
+            print "start: {}".format(pause_time_start)
+            pygame.mouse.set_visible(True)
+            initial_pause = 0
+        pause_menu_selection = draw_pause_menu()
+        if pause_menu_selection == 1:
+            pause_time_end = pygame.time.get_ticks()
+            pause_time = pause_time + (pause_time_end - pause_time_start)
+            pygame.mouse.set_visible(False)
+            initial_pause = 1
+            gameState = prev_state
+        elif pause_menu_selection == 2:
+            initial_pause = 1
+            gameState = MAIN_MENU
+        elif pause_menu_selection == 3:
+            gameState = QUIT
 
     elif gameState == QUIT:
         running = False
